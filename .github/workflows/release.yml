@@ -28,6 +28,9 @@ jobs:
         with:
           go-version: "1.25.x"
 
+      - name: Prepare module metadata
+        run: go mod tidy
+
       - name: Resolve tag name
         id: vars
         run: |
@@ -39,9 +42,10 @@ jobs:
 
       - name: Build plugin.wasm with TinyGo
         env:
-          GOFLAGS: -mod=mod
+          GOFLAGS: -mod=readonly
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "$PWD":/src \
             -w /src \
             -e GOFLAGS \
