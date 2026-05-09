@@ -1,9 +1,244 @@
 {
+  "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "sumeta",
   "author": "SuMusic",
-  "version": "0.1.0",
+  "version": "0.1.8",
   "description": "Multi-source metadata agent for Navidrome (NetEase, QQ, MusicBrainz) with source ordering, fallback, and field-level controls.",
-  "website": "https://github.com/kennysoul/sumusic",
+  "website": "https://github.com/kennysoul/sumeta",
+  "config": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "source_order": {
+          "type": "string",
+          "title": "Source Order",
+          "description": "Comma-separated source priority. Supported values: netease, qq, musicbrainz.",
+          "default": "netease,qq,musicbrainz"
+        },
+        "enable_fallback": {
+          "type": "boolean",
+          "title": "Enable Fallback",
+          "description": "If enabled, try the next source when current source returns empty result.",
+          "default": true
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "title": "HTTP Timeout (ms)",
+          "description": "HTTP request timeout in milliseconds.",
+          "default": 15000
+        },
+        "load_balance_mode": {
+          "type": "string",
+          "title": "NetEase Load Balance",
+          "description": "How to choose NetEase API host when multiple URLs are configured.",
+          "enum": [
+            "random",
+            "roundrobin"
+          ],
+          "default": "random"
+        },
+        "api_urls": {
+          "type": "string",
+          "title": "NetEase API URLs",
+          "description": "Optional comma-separated NetEase API base URLs (for example: https://apis.netstart.cn/music,https://ncm.zhenxin.me).",
+          "default": ""
+        },
+        "enable_netease": {
+          "type": "boolean",
+          "title": "NetEase",
+          "default": true
+        },
+        "enable_qq": {
+          "type": "boolean",
+          "title": "QQ Music",
+          "default": true
+        },
+        "enable_musicbrainz": {
+          "type": "boolean",
+          "title": "MusicBrainz",
+          "default": true
+        },
+        "enable_artist_url": {
+          "type": "boolean",
+          "title": "Artist URL",
+          "default": true
+        },
+        "enable_artist_biography": {
+          "type": "boolean",
+          "title": "Artist Biography",
+          "default": true
+        },
+        "enable_artist_images": {
+          "type": "boolean",
+          "title": "Artist Images",
+          "default": true
+        },
+        "enable_artist_top_songs": {
+          "type": "boolean",
+          "title": "Top Songs",
+          "default": true
+        },
+        "enable_album_info": {
+          "type": "boolean",
+          "title": "Album Info",
+          "default": true
+        },
+        "enable_album_images": {
+          "type": "boolean",
+          "title": "Album Images",
+          "default": true
+        },
+        "enabled_fields": {
+          "type": "string",
+          "title": "Enabled Fields (Advanced)",
+          "description": "Optional comma-separated allowlist: artist_url,artist_biography,artist_images,artist_top_songs,album_info,album_images.",
+          "default": ""
+        },
+        "disabled_fields": {
+          "type": "string",
+          "title": "Disabled Fields (Advanced)",
+          "description": "Optional comma-separated denylist: artist_url,artist_biography,artist_images,artist_top_songs,album_info,album_images.",
+          "default": ""
+        }
+      }
+    },
+    "uiSchema": {
+      "type": "VerticalLayout",
+      "elements": [
+        {
+          "type": "HorizontalLayout",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/source_order",
+              "options": {
+                "size": 6
+              }
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_fallback",
+              "options": {
+                "size": 2
+              }
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/timeout_ms",
+              "options": {
+                "size": 2
+              }
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/load_balance_mode",
+              "options": {
+                "size": 2
+              }
+            }
+          ]
+        },
+        {
+          "type": "Control",
+          "scope": "#/properties/api_urls"
+        },
+        {
+          "type": "Label",
+          "text": "Sources"
+        },
+        {
+          "type": "HorizontalLayout",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_netease"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_qq"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_musicbrainz"
+            },
+            {
+              "type": "Label",
+              "text": ""
+            }
+          ]
+        },
+        {
+          "type": "Label",
+          "text": "Capabilities"
+        },
+        {
+          "type": "HorizontalLayout",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_artist_url"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_artist_biography"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_artist_images"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_artist_top_songs"
+            }
+          ]
+        },
+        {
+          "type": "HorizontalLayout",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_album_info"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_album_images"
+            },
+            {
+              "type": "Label",
+              "text": ""
+            },
+            {
+              "type": "Label",
+              "text": ""
+            }
+          ]
+        },
+        {
+          "type": "Label",
+          "text": "Advanced Field Filters"
+        },
+        {
+          "type": "HorizontalLayout",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/enabled_fields",
+              "options": {
+                "size": 6
+              }
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/disabled_fields",
+              "options": {
+                "size": 6
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
   "permissions": {
     "http": {
       "reason": "Fetch artist and album metadata from NetEase, QQ Music, MusicBrainz, and Cover Art Archive",

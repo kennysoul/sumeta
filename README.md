@@ -25,6 +25,9 @@ It supports:
 
 All keys are optional. If not provided, defaults are used.
 
+In Navidrome UI (plugin settings page), keys are exposed in `snake_case` form (for example: `source_order`, `enable_fallback`, `timeout_ms`).
+Legacy keys listed below (for example: `SourceOrder`, `EnableFallback`, `TimeoutMs`) are still supported for backward compatibility.
+
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `SourceOrder` | string list | `netease,qq,musicbrainz` | Source priority order. Accepted names: `netease`, `qq`, `musicbrainz` |

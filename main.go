@@ -315,70 +315,70 @@ func loadConfig() pluginConfig {
 		neteaseLoadBalancing: loadBalanceRandom,
 	}
 
-	if raw, ok := getFirstConfig("SourceOrder", "Sources"); ok {
+	if raw, ok := getFirstConfig("SourceOrder", "Sources", "source_order", "sources"); ok {
 		parsed := parseSourceOrder(raw)
 		if len(parsed) > 0 {
 			cfg.sourceOrder = parsed
 		}
 	}
 
-	if raw, ok := getFirstConfig("EnableFallback", "Fallback"); ok {
+	if raw, ok := getFirstConfig("EnableFallback", "Fallback", "enable_fallback", "fallback"); ok {
 		cfg.enableFallback = parseBool(raw, cfg.enableFallback)
 	}
 
-	if raw, ok := getFirstConfig("TimeoutMs", "HTTPTimeoutMs"); ok {
+	if raw, ok := getFirstConfig("TimeoutMs", "HTTPTimeoutMs", "timeout_ms", "http_timeout_ms"); ok {
 		if parsed, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && parsed > 0 {
 			cfg.timeoutMs = int32(parsed)
 		}
 	}
 
-	if raw, ok := getFirstConfig("EnabledFields", "FetchFields", "OnlyFields"); ok && strings.TrimSpace(raw) != "" {
+	if raw, ok := getFirstConfig("EnabledFields", "FetchFields", "OnlyFields", "enabled_fields", "fetch_fields", "only_fields"); ok && strings.TrimSpace(raw) != "" {
 		cfg.enabledFields = parseEnabledFieldSet(raw)
 	}
-	if raw, ok := getFirstConfig("DisabledFields", "DisableFields"); ok && strings.TrimSpace(raw) != "" {
+	if raw, ok := getFirstConfig("DisabledFields", "DisableFields", "disabled_fields", "disable_fields"); ok && strings.TrimSpace(raw) != "" {
 		for _, name := range parseFieldList(raw) {
 			cfg.enabledFields[name] = false
 		}
 	}
 
-	applyFieldToggle := func(configKey, field string) {
-		if raw, ok := pdk.GetConfig(configKey); ok {
+	applyFieldToggle := func(field string, configKeys ...string) {
+		if raw, ok := getFirstConfig(configKeys...); ok {
 			cfg.enabledFields[field] = parseBool(raw, cfg.enabledFields[field])
 		}
 	}
-	applyFieldToggle("EnableArtistURL", fieldArtistURL)
-	applyFieldToggle("EnableArtistBiography", fieldArtistBiography)
-	applyFieldToggle("EnableArtistImages", fieldArtistImages)
-	applyFieldToggle("EnableArtistTopSongs", fieldArtistTopSongs)
-	applyFieldToggle("EnableAlbumInfo", fieldAlbumInfo)
-	applyFieldToggle("EnableAlbumImages", fieldAlbumImages)
+	applyFieldToggle(fieldArtistURL, "EnableArtistURL", "enable_artist_url")
+	applyFieldToggle(fieldArtistBiography, "EnableArtistBiography", "enable_artist_biography")
+	applyFieldToggle(fieldArtistImages, "EnableArtistImages", "enable_artist_images")
+	applyFieldToggle(fieldArtistTopSongs, "EnableArtistTopSongs", "enable_artist_top_songs")
+	applyFieldToggle(fieldAlbumInfo, "EnableAlbumInfo", "enable_album_info")
+	applyFieldToggle(fieldAlbumImages, "EnableAlbumImages", "enable_album_images")
 
 	sourceEnabled := map[string]bool{
 		sourceNetEase:     true,
 		sourceQQ:          true,
 		sourceMusicBrainz: true,
 	}
-	applySourceToggle := func(configKey, source string) {
-		if raw, ok := pdk.GetConfig(configKey); ok {
+	applySourceToggle := func(source string, configKeys ...string) {
+		if raw, ok := getFirstConfig(configKeys...); ok {
 			sourceEnabled[source] = parseBool(raw, sourceEnabled[source])
 		}
 	}
-	applySourceToggle("EnableNetEase", sourceNetEase)
-	applySourceToggle("EnableQQ", sourceQQ)
-	applySourceToggle("EnableMusicBrainz", sourceMusicBrainz)
+	applySourceToggle(sourceNetEase, "EnableNetEase", "enable_netease")
+	applySourceToggle(sourceQQ, "EnableQQ", "enable_qq")
+	applySourceToggle(sourceMusicBrainz, "EnableMusicBrainz", "enable_musicbrainz")
 
 	cfg.sourceOrder = filterEnabledSources(cfg.sourceOrder, sourceEnabled)
 	if len(cfg.sourceOrder) == 0 {
 		cfg.sourceOrder = []string{sourceNetEase, sourceQQ, sourceMusicBrainz}
 	}
 
-	if raw, ok := getFirstConfig("APIUrls", "NetEaseAPIUrls"); ok {
+	if raw, ok := getFirstConfig("APIUrls", "NetEaseAPIUrls", "api_urls", "netease_api_urls"); ok {
 		parsed := parseBaseURLs(raw)
 		if len(parsed) > 0 {
 			cfg.neteaseBaseURLs = parsed
 		}
 	}
-	if raw, ok := getFirstConfig("LoadBalanceMode", "NetEaseLoadBalanceMode"); ok {
+	if raw, ok := getFirstConfig("LoadBalanceMode", "NetEaseLoadBalanceMode", "load_balance_mode", "netease_load_balance_mode"); ok {
 		mode := strings.ToLower(strings.TrimSpace(raw))
 		if mode == loadBalanceRandom || mode == loadBalanceRoundRobin {
 			cfg.neteaseLoadBalancing = mode
