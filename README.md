@@ -74,7 +74,7 @@ Use custom NetEase API hosts:
 
 ```bash
 go mod tidy
-tinygo build -o plugin.wasm -target wasip1 .
+tinygo build -o plugin.wasm -target=wasip1 -buildmode=c-shared .
 zip -j sumeta.ndp manifest.json plugin.wasm
 ```
 
