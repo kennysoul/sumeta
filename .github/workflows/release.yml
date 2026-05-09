@@ -26,7 +26,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.24.x"
 
       - name: Resolve tag name
         id: vars
@@ -45,8 +45,8 @@ jobs:
             -v "$PWD":/src \
             -w /src \
             -e GOFLAGS \
-            tinygo/tinygo:0.33.0 \
-            tinygo build -o plugin.wasm -target wasip1 -buildmode=c-shared .
+            tinygo/tinygo:latest \
+            tinygo build -o plugin.wasm -target wasip1 .
 
       - name: Package NDP
         run: |
