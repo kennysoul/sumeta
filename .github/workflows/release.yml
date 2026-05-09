@@ -1,0 +1,73 @@
+name: Release NDP
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (for example: v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve tag name
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build plugin.wasm with TinyGo
+        env:
+          GOFLAGS: -mod=mod
+        run: |
+          docker run --rm \
+            -v "$PWD":/src \
+            -w /src \
+            -e GOFLAGS \
+            tinygo/tinygo:0.33.0 \
+            tinygo build -o plugin.wasm -target wasip1 -buildmode=c-shared .
+
+      - name: Package NDP
+        run: |
+          zip -j sumeta.ndp manifest.json plugin.wasm
+          sha256sum sumeta.ndp > sumeta.ndp.sha256
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sumeta-${{ steps.vars.outputs.tag }}
+          path: |
+            plugin.wasm
+            sumeta.ndp
+            sumeta.ndp.sha256
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: |
+            sumeta.ndp
+            sumeta.ndp.sha256
