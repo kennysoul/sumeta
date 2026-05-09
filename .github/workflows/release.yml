@@ -45,10 +45,12 @@ jobs:
           GOFLAGS: -mod=readonly
         run: |
           docker run --rm \
-            --user "$(id -u):$(id -g)" \
             -v "$PWD":/src \
             -w /src \
             -e GOFLAGS \
+            -e HOME=/tmp \
+            -e XDG_CACHE_HOME=/tmp/.cache \
+            -e GOCACHE=/tmp/gocache \
             tinygo/tinygo:latest \
             tinygo build -o plugin.wasm -target=wasip1 -buildmode=c-shared .
 
