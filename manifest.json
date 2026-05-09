@@ -1,0 +1,23 @@
+{
+  "name": "sumeta",
+  "author": "SuMusic",
+  "version": "0.1.0",
+  "description": "Multi-source metadata agent for Navidrome (NetEase, QQ, MusicBrainz) with source ordering, fallback, and field-level controls.",
+  "website": "https://github.com/kennysoul/sumusic",
+  "permissions": {
+    "http": {
+      "reason": "Fetch artist and album metadata from NetEase, QQ Music, MusicBrainz, and Cover Art Archive",
+      "requiredHosts": [
+        "apis.netstart.cn",
+        "ncm.zhenxin.me",
+        "ncmapi.btwoa.com",
+        "zm.wwoyun.cn",
+        "c.y.qq.com",
+        "y.qq.com",
+        "y.gtimg.cn",
+        "musicbrainz.org",
+        "coverartarchive.org"
+      ]
+    }
+  }
+}
