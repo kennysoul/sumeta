@@ -42,7 +42,7 @@ jobs:
 
       - name: Build plugin.wasm with TinyGo
         env:
-          GOFLAGS: -mod=readonly
+          GOFLAGS: -mod=readonly -buildvcs=false
         run: |
           docker run --rm \
             -v "$PWD":/src \
