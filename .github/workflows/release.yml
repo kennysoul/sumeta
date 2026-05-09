@@ -45,6 +45,7 @@ jobs:
           GOFLAGS: -mod=readonly -buildvcs=false
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "$PWD":/src \
             -w /src \
             -e GOFLAGS \
