@@ -870,7 +870,7 @@ func (a *neteaseAdapter) GetAlbumInfo(req metadata.AlbumRequest) (*metadata.Albu
 
 	detail, err := a.getAlbumDetail(album.ID)
 	if err == nil && detail.Code == 200 {
-		album = detail.Album
+		album = &detail.Album
 	}
 
 	resp := &metadata.AlbumInfoResponse{
