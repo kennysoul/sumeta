@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "sumeta",
   "author": "SuMusic",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Multi-source metadata agent for Navidrome (NetEase, QQ, MusicBrainz) with source ordering, fallback, and field-level controls.",
   "website": "https://github.com/kennysoul/sumeta",
   "config": {

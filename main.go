@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	defaultTimeoutMs    int32 = 15000
-	defaultTopSongCount int32 = 10
-	defaultSimilarArtistCount int32 = 10
+	defaultTimeoutMs         int32 = 15000
+	defaultTopSongCount      int32 = 10
+	defaultSimilarArtistCount       = 10
 
 	sourceNetEase     = "netease"
 	sourceQQ          = "qq"
