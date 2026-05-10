@@ -16,10 +16,16 @@ It supports:
 
 - `nd_get_artist_url`
 - `nd_get_artist_biography`
+- `nd_get_similar_artists`
 - `nd_get_artist_images`
 - `nd_get_artist_top_songs`
 - `nd_get_album_info`
 - `nd_get_album_images`
+
+Notes:
+
+- `nd_get_similar_artists` is powered by NetEase and QQ Music.
+- MusicBrainz will return data only when the artist has explicit `similar*` relations in MusicBrainz (`artist-rels`).
 
 ## Configuration keys
 
@@ -36,6 +42,7 @@ Legacy keys listed below (for example: `SourceOrder`, `EnableFallback`, `Timeout
 | `DisabledFields` | string list | empty | Disable selected fields |
 | `EnableArtistURL` | bool | `true` | Toggle artist URL |
 | `EnableArtistBiography` | bool | `true` | Toggle artist biography |
+| `EnableSimilarArtists` | bool | `true` | Toggle similar artists |
 | `EnableArtistImages` | bool | `true` | Toggle artist images |
 | `EnableArtistTopSongs` | bool | `true` | Toggle artist top songs |
 | `EnableAlbumInfo` | bool | `true` | Toggle album info |
@@ -51,6 +58,7 @@ Legacy keys listed below (for example: `SourceOrder`, `EnableFallback`, `Timeout
 
 - `artist_url`
 - `artist_biography`
+- `similar_artists`
 - `artist_images`
 - `artist_top_songs`
 - `album_info`

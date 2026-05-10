@@ -19,6 +19,7 @@ import (
 const (
 	defaultTimeoutMs    int32 = 15000
 	defaultTopSongCount int32 = 10
+	defaultSimilarArtistCount int32 = 10
 
 	sourceNetEase     = "netease"
 	sourceQQ          = "qq"
@@ -26,6 +27,7 @@ const (
 
 	fieldArtistURL       = "artist_url"
 	fieldArtistBiography = "artist_biography"
+	fieldSimilarArtists  = "similar_artists"
 	fieldArtistImages    = "artist_images"
 	fieldArtistTopSongs  = "artist_top_songs"
 	fieldAlbumInfo       = "album_info"
@@ -65,6 +67,7 @@ func init() {
 var (
 	_ metadata.ArtistURLProvider       = (*sumetaPlugin)(nil)
 	_ metadata.ArtistBiographyProvider = (*sumetaPlugin)(nil)
+	_ metadata.SimilarArtistsProvider  = (*sumetaPlugin)(nil)
 	_ metadata.ArtistImagesProvider    = (*sumetaPlugin)(nil)
 	_ metadata.ArtistTopSongsProvider  = (*sumetaPlugin)(nil)
 	_ metadata.AlbumInfoProvider       = (*sumetaPlugin)(nil)
@@ -111,6 +114,28 @@ func (p *sumetaPlugin) GetArtistBiography(req metadata.ArtistRequest) (*metadata
 			return false, err
 		}
 		if resp != nil && strings.TrimSpace(resp.Biography) != "" {
+			out = resp
+			return true, nil
+		}
+		return false, nil
+	})
+	return out, nil
+}
+
+func (p *sumetaPlugin) GetSimilarArtists(req metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
+	if !p.fieldEnabled(fieldSimilarArtists) {
+		return nil, nil
+	}
+	if req.Limit <= 0 {
+		req.Limit = defaultSimilarArtistCount
+	}
+	var out *metadata.SimilarArtistsResponse
+	p.walkSources(func(source string) (bool, error) {
+		resp, err := p.getSimilarArtistsFromSource(source, req)
+		if err != nil {
+			return false, err
+		}
+		if resp != nil && len(resp.Artists) > 0 {
 			out = resp
 			return true, nil
 		}
@@ -266,6 +291,19 @@ func (p *sumetaPlugin) getArtistImagesFromSource(source string, req metadata.Art
 	}
 }
 
+func (p *sumetaPlugin) getSimilarArtistsFromSource(source string, req metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
+	switch source {
+	case sourceNetEase:
+		return p.netease.GetSimilarArtists(req)
+	case sourceQQ:
+		return p.qq.GetSimilarArtists(req)
+	case sourceMusicBrainz:
+		return p.mb.GetSimilarArtists(req)
+	default:
+		return nil, nil
+	}
+}
+
 func (p *sumetaPlugin) getArtistTopSongsFromSource(source string, req metadata.TopSongsRequest) (*metadata.TopSongsResponse, error) {
 	switch source {
 	case sourceNetEase:
@@ -348,6 +386,7 @@ func loadConfig() pluginConfig {
 	}
 	applyFieldToggle(fieldArtistURL, "EnableArtistURL", "enable_artist_url")
 	applyFieldToggle(fieldArtistBiography, "EnableArtistBiography", "enable_artist_biography")
+	applyFieldToggle(fieldSimilarArtists, "EnableSimilarArtists", "enable_similar_artists")
 	applyFieldToggle(fieldArtistImages, "EnableArtistImages", "enable_artist_images")
 	applyFieldToggle(fieldArtistTopSongs, "EnableArtistTopSongs", "enable_artist_top_songs")
 	applyFieldToggle(fieldAlbumInfo, "EnableAlbumInfo", "enable_album_info")
@@ -454,6 +493,7 @@ func defaultEnabledFields() map[string]bool {
 	return map[string]bool{
 		fieldArtistURL:       true,
 		fieldArtistBiography: true,
+		fieldSimilarArtists:  true,
 		fieldArtistImages:    true,
 		fieldArtistTopSongs:  true,
 		fieldAlbumInfo:       true,
@@ -465,6 +505,7 @@ func parseEnabledFieldSet(raw string) map[string]bool {
 	result := map[string]bool{
 		fieldArtistURL:       false,
 		fieldArtistBiography: false,
+		fieldSimilarArtists:  false,
 		fieldArtistImages:    false,
 		fieldArtistTopSongs:  false,
 		fieldAlbumInfo:       false,
@@ -507,6 +548,8 @@ func normalizeFieldName(v string) string {
 		return fieldArtistURL
 	case "artist_biography", "artist_bio", "biography", "bio", "artistbiography":
 		return fieldArtistBiography
+	case "similar_artists", "similarartists", "artist_similar", "artist_similars", "similar":
+		return fieldSimilarArtists
 	case "artist_images", "artist_image", "images", "artistimages":
 		return fieldArtistImages
 	case "artist_top_songs", "artist_topsongs", "topsongs", "top_songs", "artisttopsongs":
@@ -590,6 +633,45 @@ func httpGetJSON(rawURL string, timeoutMs int32, headers map[string]string, targ
 		URL:       rawURL,
 		TimeoutMs: timeoutMs,
 		Headers:   finalHeaders,
+	})
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("http status %d", resp.StatusCode)
+	}
+	if len(resp.Body) == 0 {
+		return errEmptyResponse
+	}
+	payload := extractJSONPayload(resp.Body)
+	if len(payload) == 0 {
+		return errEmptyResponse
+	}
+	if err := json.Unmarshal(payload, target); err != nil {
+		return fmt.Errorf("json decode failed: %w", err)
+	}
+	return nil
+}
+
+func httpPostJSON(rawURL string, body []byte, timeoutMs int32, headers map[string]string, target any) error {
+	finalHeaders := map[string]string{
+		"User-Agent":   defaultUserAgent,
+		"Accept":       "application/json, text/plain, */*",
+		"Content-Type": "application/json",
+	}
+	for k, v := range headers {
+		if strings.TrimSpace(k) == "" || strings.TrimSpace(v) == "" {
+			continue
+		}
+		finalHeaders[k] = v
+	}
+
+	resp, err := host.HTTPSend(host.HTTPRequest{
+		Method:    "POST",
+		URL:       rawURL,
+		TimeoutMs: timeoutMs,
+		Headers:   finalHeaders,
+		Body:      body,
 	})
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
@@ -822,6 +904,39 @@ func (a *neteaseAdapter) GetArtistImages(req metadata.ArtistRequest) (*metadata.
 	return &metadata.ArtistImagesResponse{Images: images}, nil
 }
 
+func (a *neteaseAdapter) GetSimilarArtists(req metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
+	artist, err := a.findBestArtist(req.Name)
+	if err != nil {
+		return nil, nil
+	}
+
+	related, err := a.getSimilarArtists(artist.ID)
+	if err != nil || len(related.Artists) == 0 {
+		return nil, nil
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 || limit > len(related.Artists) {
+		limit = len(related.Artists)
+	}
+
+	artists := make([]metadata.ArtistRef, 0, limit)
+	for _, item := range related.Artists {
+		if len(artists) >= limit {
+			break
+		}
+		name := strings.TrimSpace(item.Name)
+		if name == "" {
+			continue
+		}
+		artists = append(artists, metadata.ArtistRef{Name: name})
+	}
+	if len(artists) == 0 {
+		return nil, nil
+	}
+	return &metadata.SimilarArtistsResponse{Artists: artists}, nil
+}
+
 func (a *neteaseAdapter) GetArtistTopSongs(req metadata.TopSongsRequest) (*metadata.TopSongsResponse, error) {
 	artist, err := a.findBestArtist(req.Name)
 	if err != nil {
@@ -1050,6 +1165,24 @@ func (a *neteaseAdapter) getArtistTopSongs(artistID int) (*neteaseArtistTopSongs
 	return nil, lastErr
 }
 
+func (a *neteaseAdapter) getSimilarArtists(artistID int) (*neteaseSimilarArtistsResponse, error) {
+	var lastErr error = errNotFound
+	for _, baseURL := range a.client.orderedBaseURLs() {
+		dURL := fmt.Sprintf("%s/simi/artist?id=%s", baseURL, url.QueryEscape(strconv.Itoa(artistID)))
+		var out neteaseSimilarArtistsResponse
+		err := httpGetJSON(dURL, a.client.timeoutMs, a.headers(), &out)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if out.Code == 200 && len(out.Artists) > 0 {
+			return &out, nil
+		}
+		lastErr = fmt.Errorf("netease similar artist code=%d", out.Code)
+	}
+	return nil, lastErr
+}
+
 func (a *neteaseAdapter) getAlbumDetail(albumID int) (*neteaseAlbumDetail, error) {
 	var lastErr error = errNotFound
 	for _, baseURL := range a.client.orderedBaseURLs() {
@@ -1145,6 +1278,11 @@ type neteaseArtistTopSongsResponse struct {
 		} `json:"ar"`
 	} `json:"songs"`
 	Code int `json:"code"`
+}
+
+type neteaseSimilarArtistsResponse struct {
+	Artists []neteaseArtist `json:"artists"`
+	Code    int             `json:"code"`
 }
 
 type neteaseAlbumDetail struct {
@@ -1255,6 +1393,48 @@ func (a *qqAdapter) GetArtistTopSongs(req metadata.TopSongsRequest) (*metadata.T
 	return &metadata.TopSongsResponse{Songs: out}, nil
 }
 
+func (a *qqAdapter) GetSimilarArtists(req metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
+	singer, err := a.findBestSinger(req.Name)
+	if err != nil || strings.TrimSpace(singer.Mid) == "" {
+		return nil, nil
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = defaultSimilarArtistCount
+	}
+
+	data, err := a.getSimilarSingerList(singer.Mid, limit)
+	if err != nil || len(data.SingerList) == 0 {
+		return nil, nil
+	}
+
+	out := make([]metadata.ArtistRef, 0, limit)
+	seen := map[string]struct{}{}
+	for _, item := range data.SingerList {
+		if len(out) >= limit {
+			break
+		}
+		name := strings.TrimSpace(item.SingerName)
+		if name == "" {
+			continue
+		}
+		key := normalizeText(name)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, metadata.ArtistRef{Name: name})
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return &metadata.SimilarArtistsResponse{Artists: out}, nil
+}
+
 func (a *qqAdapter) GetAlbumInfo(req metadata.AlbumRequest) (*metadata.AlbumInfoResponse, error) {
 	album, err := a.findBestAlbum(req.Name, req.Artist)
 	if err != nil || album.Mid == "" {
@@ -1357,6 +1537,44 @@ func (a *qqAdapter) getSingerDetail(singerMID string) (*qqSingerDetailResponse, 
 	return &out, nil
 }
 
+func (a *qqAdapter) getSimilarSingerList(singerMID string, num int) (*qqSimilarSingerData, error) {
+	mid := strings.TrimSpace(singerMID)
+	if mid == "" {
+		return nil, errNotFound
+	}
+	if num <= 0 {
+		num = defaultSimilarArtistCount
+	}
+
+	reqBody := map[string]any{
+		"comm": map[string]any{"ct": 24, "cv": 0},
+		"req_1": map[string]any{
+			"module": "music.SimilarSingerSvr",
+			"method": "GetSimilarSingerList",
+			"param":  map[string]any{"singerMid": mid, "num": num},
+		},
+	}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	var out qqSimilarSingerResponse
+	if err := httpPostJSON("https://u.y.qq.com/cgi-bin/musicu.fcg", body, a.timeoutMs, a.headers(), &out); err != nil {
+		return nil, err
+	}
+	if out.Req1.Code != 0 {
+		return nil, fmt.Errorf("qq similar singer code=%d", out.Req1.Code)
+	}
+	if out.Req1.Data.Code != 0 {
+		return nil, fmt.Errorf("qq similar singer data code=%d", out.Req1.Data.Code)
+	}
+	if len(out.Req1.Data.SingerList) == 0 {
+		return nil, errNotFound
+	}
+	return &out.Req1.Data, nil
+}
+
 func (a *qqAdapter) getAlbumInfo(albumMID string) (*qqAlbumInfoResponse, error) {
 	u := "https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=" + url.QueryEscape(strings.TrimSpace(albumMID)) + "&format=json"
 	var out qqAlbumInfoResponse
@@ -1416,6 +1634,26 @@ type qqAlbumInfoResponse struct {
 	} `json:"data"`
 }
 
+type qqSimilarSingerResponse struct {
+	Req1 struct {
+		Code int                `json:"code"`
+		Data qqSimilarSingerData `json:"data"`
+	} `json:"req_1"`
+}
+
+type qqSimilarSingerData struct {
+	Code       int                   `json:"code"`
+	ErrMsg     string                `json:"errMsg"`
+	SingerList []qqSimilarSingerItem `json:"singerlist"`
+}
+
+type qqSimilarSingerItem struct {
+	SingerID   int64  `json:"singerId"`
+	SingerMid  string `json:"singerMid"`
+	SingerName string `json:"singerName"`
+	SingerPic  string `json:"singerPic"`
+}
+
 // MusicBrainz adapter
 
 type musicBrainzAdapter struct {
@@ -1456,6 +1694,55 @@ func (a *musicBrainzAdapter) GetArtistImages(_ metadata.ArtistRequest) (*metadat
 
 func (a *musicBrainzAdapter) GetArtistTopSongs(_ metadata.TopSongsRequest) (*metadata.TopSongsResponse, error) {
 	return nil, nil
+}
+
+func (a *musicBrainzAdapter) GetSimilarArtists(req metadata.SimilarArtistsRequest) (*metadata.SimilarArtistsResponse, error) {
+	artistID := strings.TrimSpace(req.MBID)
+	if artistID == "" {
+		artist, err := a.findBestArtist(req.Name)
+		if err != nil || strings.TrimSpace(artist.ID) == "" {
+			return nil, nil
+		}
+		artistID = strings.TrimSpace(artist.ID)
+	}
+
+	artist, err := a.getArtistDetail(artistID)
+	if err != nil || len(artist.Relations) == 0 {
+		return nil, nil
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = defaultSimilarArtistCount
+	}
+	out := make([]metadata.ArtistRef, 0, limit)
+	seen := map[string]struct{}{}
+	for _, rel := range artist.Relations {
+		if !isMusicBrainzSimilarRelationType(rel.Type) {
+			continue
+		}
+		if rel.TargetType != "" && strings.ToLower(strings.TrimSpace(rel.TargetType)) != "artist" {
+			continue
+		}
+		name := strings.TrimSpace(rel.Artist.Name)
+		if name == "" {
+			continue
+		}
+		mbid := strings.TrimSpace(rel.Artist.ID)
+		key := normalizeText(name) + "|" + strings.ToLower(mbid)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, metadata.ArtistRef{Name: name, MBID: mbid})
+		if len(out) >= limit {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return &metadata.SimilarArtistsResponse{Artists: out}, nil
 }
 
 func (a *musicBrainzAdapter) GetAlbumInfo(req metadata.AlbumRequest) (*metadata.AlbumInfoResponse, error) {
@@ -1563,6 +1850,22 @@ func (a *musicBrainzAdapter) findBestReleaseGroup(albumName, artistName string) 
 	return &best, nil
 }
 
+func (a *musicBrainzAdapter) getArtistDetail(artistID string) (*mbArtist, error) {
+	artistID = strings.TrimSpace(artistID)
+	if artistID == "" {
+		return nil, errNotFound
+	}
+	u := "https://musicbrainz.org/ws/2/artist/" + url.QueryEscape(artistID) + "?fmt=json&inc=artist-rels"
+	var out mbArtist
+	if err := httpGetJSON(u, a.timeoutMs, a.headers(), &out); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(out.ID) == "" {
+		return nil, errNotFound
+	}
+	return &out, nil
+}
+
 func (a *musicBrainzAdapter) getReleaseGroupCoverArt(releaseGroupID string) (*mbCoverArtResponse, error) {
 	u := "https://coverartarchive.org/release-group/" + url.QueryEscape(strings.TrimSpace(releaseGroupID))
 	var out mbCoverArtResponse
@@ -1579,6 +1882,14 @@ func firstArtistCreditName(credits []mbArtistCredit) string {
 		}
 	}
 	return ""
+}
+
+func isMusicBrainzSimilarRelationType(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" {
+		return false
+	}
+	return strings.Contains(v, "similar")
 }
 
 func buildMusicBrainzArtistBio(artist *mbArtist) string {
@@ -1641,11 +1952,23 @@ type mbArtist struct {
 	Type          string `json:"type"`
 	Country       string `json:"country"`
 	Disambiguation string `json:"disambiguation"`
+	Relations     []mbArtistRelation `json:"relations"`
 	LifeSpan      struct {
 		Begin string `json:"begin"`
 		End   string `json:"end"`
 	} `json:"life-span"`
 	Tags []mbTag `json:"tags"`
+}
+
+type mbArtistRelation struct {
+	Type       string      `json:"type"`
+	TargetType string      `json:"target-type"`
+	Artist     mbArtistRef `json:"artist"`
+}
+
+type mbArtistRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type mbTag struct {

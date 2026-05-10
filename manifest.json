@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/navidrome/navidrome/refs/heads/master/plugins/manifest-schema.json",
   "name": "sumeta",
   "author": "SuMusic",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Multi-source metadata agent for Navidrome (NetEase, QQ, MusicBrainz) with source ordering, fallback, and field-level controls.",
   "website": "https://github.com/kennysoul/sumeta",
   "config": {
@@ -68,6 +68,11 @@
           "title": "Artist Biography",
           "default": true
         },
+        "enable_similar_artists": {
+          "type": "boolean",
+          "title": "Similar Artists",
+          "default": true
+        },
         "enable_artist_images": {
           "type": "boolean",
           "title": "Artist Images",
@@ -91,13 +96,13 @@
         "enabled_fields": {
           "type": "string",
           "title": "Enabled Fields (Advanced)",
-          "description": "Optional comma-separated allowlist: artist_url,artist_biography,artist_images,artist_top_songs,album_info,album_images.",
+          "description": "Optional comma-separated allowlist: artist_url,artist_biography,similar_artists,artist_images,artist_top_songs,album_info,album_images.",
           "default": ""
         },
         "disabled_fields": {
           "type": "string",
           "title": "Disabled Fields (Advanced)",
-          "description": "Optional comma-separated denylist: artist_url,artist_biography,artist_images,artist_top_songs,album_info,album_images.",
+          "description": "Optional comma-separated denylist: artist_url,artist_biography,similar_artists,artist_images,artist_top_songs,album_info,album_images.",
           "default": ""
         }
       }
@@ -181,6 +186,10 @@
             {
               "type": "Control",
               "scope": "#/properties/enable_artist_biography"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/enable_similar_artists"
             },
             {
               "type": "Control",
